@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { apiFetch, getToken } from "@/lib/api";
+import { apiFetch, getToken, toAmountMinorFromMajor } from "@/lib/api";
 import { NgoProjectRowEditor, type ProjectRow } from "../project-row-editor";
 import { useState } from "react";
 
@@ -34,7 +34,7 @@ export default function NgoProjectsPage() {
             title,
             summary,
             description,
-            goalAmountMinor: parseInt(goal, 10),
+            goalAmountMinor: toAmountMinorFromMajor(parseFloat(goal), "KES"),
             currency: "KES",
             ...(startDate ? { startDate: new Date(startDate).toISOString() } : {}),
             ...(endDate ? { endDate: new Date(endDate).toISOString() } : {}),
@@ -72,7 +72,7 @@ export default function NgoProjectsPage() {
             <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} />
           </div>
           <div>
-            <Label>Goal (minor units)</Label>
+            <Label>Fundraising goal (KES, whole shillings)</Label>
             <Input value={goal} onChange={(e) => setGoal(e.target.value)} />
           </div>
           <div className="grid gap-2 sm:grid-cols-2">

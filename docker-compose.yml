@@ -33,6 +33,9 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    # Loads backend/.env into the container (Stripe, JWT, etc.). Values below override same keys for Docker networking.
+    env_file:
+      - ./backend/.env
     ports: ["4000:4000"]
     depends_on:
       postgres:
@@ -55,9 +58,7 @@ services:
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
       PUBLIC_WEB_URL: ${PUBLIC_WEB_URL:-http://localhost:3000}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-change-me-in-production}
-      # Stripe (https://dashboard.stripe.com): secret key + webhook signing secret — leave empty until configured.
-      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
-      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      # Stripe: set STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET in backend/.env (do not duplicate empty keys here or they override env_file).
       MPESA_ENVIRONMENT: ${MPESA_ENVIRONMENT:-sandbox}
       MPESA_CONSUMER_KEY: ${MPESA_CONSUMER_KEY:-}
       MPESA_CONSUMER_SECRET: ${MPESA_CONSUMER_SECRET:-}

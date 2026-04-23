@@ -1,4 +1,10 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DonationStatus, OrganizationStatus, ProjectStatus, UserRole } from '@prisma/client';
 import Stripe from 'stripe';
@@ -77,8 +83,8 @@ export class DonationsService {
             quantity: 1,
           },
         ],
-        success_url: `${publicUrl}/donor?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${publicUrl}/projects/${projectId}?checkout=cancel`,
+        success_url: `${publicUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${publicUrl}/cancel?project_id=${encodeURIComponent(projectId)}`,
         metadata: {
           projectId: project.id,
           donorUserId: donorId,
@@ -104,6 +110,53 @@ export class DonationsService {
     return { url: session.url, sessionId: session.id };
   }
 
+  /**
+   * After Checkout redirect (when webhooks are not delivered), confirm payment with Stripe and
+   * mark the donation SUCCEEDED + increment project raised amount (idempotent).
+   */
+  async verifyCheckoutSession(donorId: string, sessionId: string) {
+    const stripe = this.getStripe();
+    const session = await stripe.checkout.sessions.retrieve(sessionId, {
+      expand: ['payment_intent'],
+    });
+    if (session.payment_status !== 'paid') {
+      return { ok: false as const, reason: 'not_paid' };
+    }
+    if (session.metadata?.donorUserId !== donorId) {
+      throw new ForbiddenException();
+    }
+    const { updated } = await this.finalizeCheckoutSessionIfNeeded(session);
+    return { ok: true as const, updated };
+  }
+
+  /** Idempotent: safe if webhook already ran. */
+  private async finalizeCheckoutSessionIfNeeded(session: Stripe.Checkout.Session): Promise<{ updated: boolean }> {
+    const projectId = session.metadata?.projectId;
+    const donorUserId = session.metadata?.donorUserId;
+    if (!projectId || !donorUserId) return { updated: false };
+    const donation = await this.prisma.donation.findFirst({
+      where: { stripeCheckoutSessionId: session.id },
+    });
+    if (!donation) return { updated: false };
+    if (donation.status === DonationStatus.SUCCEEDED) return { updated: false };
+    const paymentIntentId =
+      typeof session.payment_intent === 'string'
+        ? session.payment_intent
+        : (session.payment_intent as Stripe.PaymentIntent | null)?.id;
+    await this.prisma.donation.update({
+      where: { id: donation.id },
+      data: {
+        status: DonationStatus.SUCCEEDED,
+        ...(paymentIntentId ? { stripePaymentIntentId: paymentIntentId } : {}),
+      },
+    });
+    await this.prisma.project.update({
+      where: { id: projectId },
+      data: { raisedAmountMinor: { increment: donation.amountMinor } },
+    });
+    return { updated: true };
+  }
+
   async handleStripeEvent(rawBody: Buffer, signature: string | string[] | undefined) {
     if (!signature) return { received: false };
     const whSecret = this.config.get<string>('STRIPE_WEBHOOK_SECRET')?.trim();
@@ -127,28 +180,7 @@ export class DonationsService {
 
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object as Stripe.Checkout.Session;
-      const projectId = session.metadata?.projectId;
-      const donorUserId = session.metadata?.donorUserId;
-      if (!projectId || !donorUserId) return { received: true };
-      const donation = await this.prisma.donation.findFirst({
-        where: { stripeCheckoutSessionId: session.id },
-      });
-      if (donation) {
-        await this.prisma.donation.update({
-          where: { id: donation.id },
-          data: {
-            status: DonationStatus.SUCCEEDED,
-            stripePaymentIntentId:
-              typeof session.payment_intent === 'string'
-                ? session.payment_intent
-                : (session.payment_intent as Stripe.PaymentIntent | null)?.id,
-          },
-        });
-        await this.prisma.project.update({
-          where: { id: projectId },
-          data: { raisedAmountMinor: { increment: donation.amountMinor } },
-        });
-      }
+      await this.finalizeCheckoutSessionIfNeeded(session);
     }
     return { received: true };
   }

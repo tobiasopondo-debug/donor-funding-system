@@ -9,11 +9,17 @@ export class CheckoutDto {
   amountMinor: number;
 }
 
+export class CheckoutVerifyDto {
+  @IsString()
+  @MinLength(10)
+  sessionId: string;
+}
+
 export class MpesaInitiateDto {
   @IsString()
   projectId: string;
 
-  /** Stripe-style minor units (cents); converted to whole KES for STK. */
+  /** Stored minor units (KES: 100 = 1 shilling). Frontend sends major units converted the same way as card checkout. */
   @IsInt()
   @Min(100)
   amountMinor: number;

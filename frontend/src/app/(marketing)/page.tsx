@@ -1,7 +1,10 @@
 import { getServerApiBase } from "@/lib/api";
+import { AboutMissionSection } from "./about-mission-section";
 import type { PublicStats } from "./hero-section";
+import { FaqSection } from "./faq-section";
 import { FeaturedGrid } from "./featured-grid";
 import { HeroSection } from "./hero-section";
+import { ReviewsSection } from "./reviews-section";
 import { StepsSection } from "./steps-section";
 
 export default async function LandingPage() {
@@ -29,7 +32,8 @@ export default async function LandingPage() {
     <div>
       <HeroSection stats={stats} />
       <StepsSection />
-      <section className="border-y border-border/60 bg-muted/20">
+      <AboutMissionSection />
+      <section className="border-t border-border/60 bg-background">
         <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
           <h2 className="text-center text-2xl font-semibold">Featured projects</h2>
           <div className="mt-10">
@@ -37,6 +41,8 @@ export default async function LandingPage() {
           </div>
         </div>
       </section>
+      <ReviewsSection />
+      <FaqSection />
     </div>
   );
 }

@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MinioImage } from "@/components/ui/minio-image";
 import { Textarea } from "@/components/ui/textarea";
-import { apiFetch, formatKES, getToken } from "@/lib/api";
+import { apiFetch, formatKES, getToken, majorFromAmountMinor, toAmountMinorFromMajor } from "@/lib/api";
 
 export type ProjectRow = {
   id: string;
@@ -40,7 +40,9 @@ export function NgoProjectRowEditor({ p }: { p: ProjectRow }) {
   const [title, setTitle] = useState(p.title);
   const [summary, setSummary] = useState(p.summary);
   const [description, setDescription] = useState(p.description);
-  const [goal, setGoal] = useState(String(p.goalAmountMinor));
+  const [goal, setGoal] = useState(() =>
+    String(majorFromAmountMinor(p.goalAmountMinor, p.currency ?? "KES")),
+  );
   const [start, setStart] = useState(toInputDate(p.startDate));
   const [end, setEnd] = useState(toInputDate(p.endDate));
   const [updateBody, setUpdateBody] = useState("");
@@ -55,7 +57,7 @@ export function NgoProjectRowEditor({ p }: { p: ProjectRow }) {
             title,
             summary,
             description,
-            goalAmountMinor: parseInt(goal, 10),
+            goalAmountMinor: toAmountMinorFromMajor(parseFloat(goal), p.currency ?? "KES"),
             currency: p.currency ?? "KES",
             ...(start ? { startDate: new Date(start).toISOString() } : {}),
             ...(end ? { endDate: new Date(end).toISOString() } : {}),
@@ -141,7 +143,7 @@ export function NgoProjectRowEditor({ p }: { p: ProjectRow }) {
                 <Input value={title} onChange={(e) => setTitle(e.target.value)} />
               </div>
               <div>
-                <Label>Goal (minor units)</Label>
+                <Label>Goal ({p.currency ?? "KES"}, whole units)</Label>
                 <Input value={goal} onChange={(e) => setGoal(e.target.value)} />
               </div>
             </div>

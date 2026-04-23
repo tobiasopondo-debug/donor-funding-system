@@ -40,6 +40,21 @@ export function formatKES(minorAmount: number, currency: string = "KES"): string
   }).format(major);
 }
 
+/** Major display units → API minor units (KES: 1 shilling = 100 minor, i.e. 50000 KES → 5_000_000 minor). */
+export function toAmountMinorFromMajor(major: number, currency: string): number {
+  if (!Number.isFinite(major) || major < 0) return 0;
+  const code = (currency || "KES").toUpperCase();
+  if (ZERO_DECIMAL_CURRENCIES.has(code)) return Math.round(major);
+  return Math.round(major * 100);
+}
+
+/** API minor units → major for form inputs (inverse of {@link toAmountMinorFromMajor}). */
+export function majorFromAmountMinor(minor: number, currency: string): number {
+  const code = (currency || "KES").toUpperCase();
+  if (ZERO_DECIMAL_CURRENCIES.has(code)) return minor;
+  return minor / 100;
+}
+
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
   try {

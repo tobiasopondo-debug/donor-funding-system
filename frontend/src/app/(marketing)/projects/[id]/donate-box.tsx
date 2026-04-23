@@ -6,12 +6,12 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { apiFetch, getToken } from "@/lib/api";
+import { apiFetch, getToken, toAmountMinorFromMajor } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth-store";
 import Link from "next/link";
 
 export function DonateBox({ projectId, currency }: { projectId: string; currency: string }) {
-  const [amount, setAmount] = useState("10000");
+  const [amount, setAmount] = useState("1000");
   const [phone, setPhone] = useState("");
   const [mpesaDonationId, setMpesaDonationId] = useState<string | null>(null);
   const router = useRouter();
@@ -48,9 +48,14 @@ export function DonateBox({ projectId, currency }: { projectId: string; currency
   }, [mpesaDonationId, user, router]);
 
   const donate = async () => {
-    const minor = Math.round(parseFloat(amount));
-    if (!Number.isFinite(minor) || minor < 1) {
+    const major = parseFloat(amount);
+    if (!Number.isFinite(major) || major <= 0) {
       toast.error("Enter a valid amount");
+      return;
+    }
+    const minor = toAmountMinorFromMajor(major, currency);
+    if (minor < 1) {
+      toast.error("Amount too small");
       return;
     }
     if (!user || user.role !== "DONOR") {
@@ -74,9 +79,14 @@ export function DonateBox({ projectId, currency }: { projectId: string; currency
   };
 
   const donateMpesa = async () => {
-    const minor = Math.round(parseFloat(amount));
-    if (!Number.isFinite(minor) || minor < 100) {
-      toast.error("Enter at least 100 minor units (1 KES)");
+    const major = parseFloat(amount);
+    if (!Number.isFinite(major) || major <= 0) {
+      toast.error("Enter a valid amount");
+      return;
+    }
+    const minor = toAmountMinorFromMajor(major, currency);
+    if (minor < 100) {
+      toast.error(isKes ? "Enter at least 1 KES" : "Amount too small");
       return;
     }
     if (!phone.trim()) {
@@ -111,7 +121,9 @@ export function DonateBox({ projectId, currency }: { projectId: string; currency
 
   return (
     <div className="space-y-3 rounded-2xl border border-border/80 bg-card p-4 shadow-sm">
-      <Label htmlFor="amount">Amount ({currency}, minor units — e.g. 10000 = 100.00 if 2-decimal)</Label>
+      <Label htmlFor="amount">
+        Amount ({isKes ? "Kenya shillings, whole numbers" : `${currency}, major units (e.g. dollars)`})
+      </Label>
       <Input
         id="amount"
         type="number"
@@ -122,8 +134,7 @@ export function DonateBox({ projectId, currency }: { projectId: string; currency
         className="text-base"
       />
       <p className="text-xs text-muted-foreground">
-        Stripe uses card wallets in minor units. M-Pesa STK uses whole Kenya shillings derived from minor units
-        (amount ÷ 100 for KES).
+        The same number is converted to the correct smallest currency units for Stripe and for M-Pesa (KES: ×100).
       </p>
       {user?.role === "DONOR" ? (
         <div className="space-y-3">

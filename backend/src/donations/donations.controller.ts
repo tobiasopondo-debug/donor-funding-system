@@ -4,7 +4,7 @@ import { UserRole } from '@prisma/client';
 import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { RolesGuard } from '../common/guards/roles.guard';
-import { CheckoutDto, MpesaInitiateDto } from './dto/donation.dto';
+import { CheckoutDto, CheckoutVerifyDto, MpesaInitiateDto } from './dto/donation.dto';
 import { DonationsService } from './donations.service';
 
 @Controller('donations')
@@ -23,6 +23,14 @@ export class DonationsController {
   @Roles(UserRole.DONOR)
   checkout(@CurrentUser() user: AuthUser, @Body() body: CheckoutDto) {
     return this.donations.createCheckout(user.id, user.role as UserRole, body.projectId, body.amountMinor);
+  }
+
+  /** When Stripe webhooks are not forwarded (e.g. local Docker), finalize the session after redirect to /success. */
+  @Post('checkout/verify-session')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.DONOR)
+  verifyCheckout(@CurrentUser() user: AuthUser, @Body() body: CheckoutVerifyDto) {
+    return this.donations.verifyCheckoutSession(user.id, body.sessionId);
   }
 
   @Post('mpesa/initiate')
