@@ -14,7 +14,9 @@ export class OrganizationsService {
 
   async create(userId: string, role: UserRole, dto: CreateOrganizationDto) {
     if (role !== UserRole.NGO_USER) throw new ForbiddenException();
-    const existing = await this.prisma.organization.findUnique({ where: { ownerUserId: userId } });
+    const existing = await this.prisma.organization.findUnique({
+      where: { ownerUserId: userId },
+    });
     if (existing) throw new BadRequestException('Organization already exists');
     return this.prisma.organization.create({
       data: {
@@ -61,7 +63,10 @@ export class OrganizationsService {
       where: { id, status: OrganizationStatus.APPROVED },
       include: {
         files: {
-          where: { deletedAt: null, kind: { in: ['NGO_LOGO', 'NGO_BANNER', 'NGO_GALLERY'] } },
+          where: {
+            deletedAt: null,
+            kind: { in: ['NGO_LOGO', 'NGO_BANNER', 'NGO_GALLERY'] },
+          },
         },
         projects: {
           where: { status: ProjectStatus.PUBLISHED },
@@ -117,7 +122,9 @@ export class OrganizationsService {
   }
 
   private async requireOrgForUser(userId: string) {
-    const org = await this.prisma.organization.findUnique({ where: { ownerUserId: userId } });
+    const org = await this.prisma.organization.findUnique({
+      where: { ownerUserId: userId },
+    });
     if (!org) throw new NotFoundException();
     return org;
   }

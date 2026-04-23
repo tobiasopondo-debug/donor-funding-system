@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookieSecureFlag } from "../refresh-cookie";
 
 const API = process.env.INTERNAL_API_URL ?? "http://localhost:4000";
 
@@ -13,6 +14,12 @@ export async function POST(req: NextRequest) {
     /* ignore */
   }
   const res = NextResponse.json({ ok: true });
-  res.cookies.set("refresh_token", "", { maxAge: 0, path: "/" });
+  res.cookies.set("refresh_token", "", {
+    httpOnly: true,
+    path: "/",
+    sameSite: "lax",
+    maxAge: 0,
+    secure: cookieSecureFlag(req),
+  });
   return res;
 }

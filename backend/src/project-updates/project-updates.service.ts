@@ -1,4 +1,8 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { OrganizationStatus, ProjectStatus, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProjectUpdateDto } from './dto/project-update.dto';
@@ -24,11 +28,20 @@ export class ProjectUpdatesService {
     });
   }
 
-  async create(userId: string, role: UserRole, projectId: string, dto: CreateProjectUpdateDto) {
+  async create(
+    userId: string,
+    role: UserRole,
+    projectId: string,
+    dto: CreateProjectUpdateDto,
+  ) {
     if (role !== UserRole.NGO_USER) throw new ForbiddenException();
-    const org = await this.prisma.organization.findUnique({ where: { ownerUserId: userId } });
+    const org = await this.prisma.organization.findUnique({
+      where: { ownerUserId: userId },
+    });
     if (!org) throw new NotFoundException('Organization required');
-    const project = await this.prisma.project.findFirst({ where: { id: projectId, orgId: org.id } });
+    const project = await this.prisma.project.findFirst({
+      where: { id: projectId, orgId: org.id },
+    });
     if (!project) throw new NotFoundException();
     return this.prisma.projectUpdate.create({
       data: {

@@ -1,7 +1,18 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { UserRole } from '@prisma/client';
-import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
+import {
+  CurrentUser,
+  AuthUser,
+} from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { AdminReviewDto, CreateOrganizationDto } from './dto/organization.dto';
@@ -38,7 +49,10 @@ export class OrganizationsController {
   @Patch('me')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(UserRole.NGO_USER)
-  update(@CurrentUser() user: AuthUser, @Body() dto: Partial<CreateOrganizationDto>) {
+  update(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: Partial<CreateOrganizationDto>,
+  ) {
     return this.orgs.updateMine(user.id, dto);
   }
 

@@ -16,12 +16,16 @@ type StkCallbackBody = {
       CheckoutRequestID?: string;
       ResultCode?: number;
       ResultDesc?: string;
-      CallbackMetadata?: { Item?: Array<{ Name?: string; Value?: string | number }> };
+      CallbackMetadata?: {
+        Item?: Array<{ Name?: string; Value?: string | number }>;
+      };
     };
   };
 };
 
-export type StkCallbackInner = NonNullable<StkCallbackBody['Body']>['stkCallback'];
+export type StkCallbackInner = NonNullable<
+  StkCallbackBody['Body']
+>['stkCallback'];
 
 type StkQueryResponse = {
   ResultCode?: string | number;
@@ -32,7 +36,9 @@ type StkQueryResponse = {
   MpesaReceiptNumber?: string;
   TransactionDate?: string;
   PhoneNumber?: string;
-  ResultParameters?: { ResultParameter?: Array<{ Key: string; Value: string | number }> };
+  ResultParameters?: {
+    ResultParameter?: Array<{ Key: string; Value: string | number }>;
+  };
 };
 
 @Injectable()
@@ -42,7 +48,9 @@ export class MpesaService {
   constructor(private readonly config: ConfigService) {}
 
   private baseUrl(): string {
-    const env = (this.config.get<string>('MPESA_ENVIRONMENT') ?? 'sandbox').toLowerCase();
+    const env = (
+      this.config.get<string>('MPESA_ENVIRONMENT') ?? 'sandbox'
+    ).toLowerCase();
     return env === 'production'
       ? 'https://api.safaricom.co.ke'
       : 'https://sandbox.safaricom.co.ke';
@@ -53,7 +61,9 @@ export class MpesaService {
     const secret = this.config.getOrThrow<string>('MPESA_CONSUMER_SECRET');
     const auth = Buffer.from(`${key}:${secret}`).toString('base64');
     const url = `${this.baseUrl()}/oauth/v1/generate?grant_type=client_credentials`;
-    const res = await fetch(url, { headers: { Authorization: `Basic ${auth}` } });
+    const res = await fetch(url, {
+      headers: { Authorization: `Basic ${auth}` },
+    });
     if (!res.ok) {
       const text = await res.text();
       this.logger.warn(`OAuth failed ${res.status}: ${text}`);
@@ -70,11 +80,18 @@ export class MpesaService {
     return Buffer.from(`${sc}${pk}${timestamp}`).toString('base64');
   }
 
-  private stkTransactionType(): 'CustomerPayBillOnline' | 'CustomerBuyGoodsOnline' {
-    const raw = (this.config.get<string>('MPESA_TRANSACTION_TYPE') ?? 'CustomerPayBillOnline').trim();
+  private stkTransactionType():
+    | 'CustomerPayBillOnline'
+    | 'CustomerBuyGoodsOnline' {
+    const raw = (
+      this.config.get<string>('MPESA_TRANSACTION_TYPE') ??
+      'CustomerPayBillOnline'
+    ).trim();
     if (raw === 'CustomerBuyGoodsOnline') return 'CustomerBuyGoodsOnline';
     if (raw === 'CustomerPayBillOnline') return 'CustomerPayBillOnline';
-    this.logger.warn(`Invalid MPESA_TRANSACTION_TYPE "${raw}", defaulting to CustomerPayBillOnline`);
+    this.logger.warn(
+      `Invalid MPESA_TRANSACTION_TYPE "${raw}", defaulting to CustomerPayBillOnline`,
+    );
     return 'CustomerPayBillOnline';
   }
 
@@ -87,7 +104,8 @@ export class MpesaService {
   normalizeKenyaPhone(input: string): string | null {
     const digits = input.replace(/\D/g, '');
     if (digits.startsWith('254') && digits.length === 12) return digits;
-    if (digits.startsWith('0') && digits.length === 10) return `254${digits.slice(1)}`;
+    if (digits.startsWith('0') && digits.length === 10)
+      return `254${digits.slice(1)}`;
     if (digits.length === 9 && digits.startsWith('7')) return `254${digits}`;
     return null;
   }
@@ -100,7 +118,9 @@ export class MpesaService {
   }): Promise<StkInitResponse> {
     const shortcode = this.config.getOrThrow<string>('MPESA_SHORTCODE');
     const passkey = this.config.getOrThrow<string>('MPESA_PASSKEY');
-    const callbackUrl = this.config.getOrThrow<string>('MPESA_STK_CALLBACK_URL');
+    const callbackUrl = this.config.getOrThrow<string>(
+      'MPESA_STK_CALLBACK_URL',
+    );
     const partyB = this.config.get<string>('MPESA_PARTY_B') ?? shortcode;
     const token = await this.getAccessToken();
     const timestamp = this.formatTimestamp(new Date());
@@ -119,14 +139,17 @@ export class MpesaService {
       AccountReference: params.accountReference.slice(0, 12),
       TransactionDesc: params.transactionDesc.slice(0, 13),
     };
-    const res = await fetch(`${this.baseUrl()}/mpesa/stkpush/v1/processrequest`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
+    const res = await fetch(
+      `${this.baseUrl()}/mpesa/stkpush/v1/processrequest`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
       },
-      body: JSON.stringify(body),
-    });
+    );
     const data = (await res.json()) as StkInitResponse;
     if (!res.ok) {
       this.logger.warn(`STK HTTP ${res.status}: ${JSON.stringify(data)}`);
@@ -134,7 +157,10 @@ export class MpesaService {
     return data;
   }
 
-  async queryStkStatus(checkoutRequestId: string, merchantRequestId: string): Promise<StkQueryResponse> {
+  async queryStkStatus(
+    checkoutRequestId: string,
+    merchantRequestId: string,
+  ): Promise<StkQueryResponse> {
     const shortcode = this.config.getOrThrow<string>('MPESA_SHORTCODE');
     const passkey = this.config.getOrThrow<string>('MPESA_PASSKEY');
     const token = await this.getAccessToken();
@@ -179,7 +205,9 @@ export class MpesaService {
       ResultParameter?: Array<{ Key: string; Value: string | number }>;
       Item?: Array<{ Name?: string; Value?: string | number }>;
     };
-    ResultParameters?: { ResultParameter?: Array<{ Key: string; Value: string | number }> };
+    ResultParameters?: {
+      ResultParameter?: Array<{ Key: string; Value: string | number }>;
+    };
   }): StkQueryResponse {
     const out: StkQueryResponse = {
       ResultCode: raw.ResultCode != null ? String(raw.ResultCode) : undefined,
@@ -187,13 +215,17 @@ export class MpesaService {
       MerchantRequestID: raw.MerchantRequestID,
       CheckoutRequestID: raw.CheckoutRequestID,
     };
-    const params = raw.ResultParameters?.ResultParameter ?? raw.CallbackMetadata?.ResultParameter;
+    const params =
+      raw.ResultParameters?.ResultParameter ??
+      raw.CallbackMetadata?.ResultParameter;
     if (params) {
       for (const p of params) {
         if (p.Key === 'Amount') out.Amount = String(p.Value);
-        if (p.Key === 'MpesaReceiptNumber') out.MpesaReceiptNumber = String(p.Value);
+        if (p.Key === 'MpesaReceiptNumber')
+          out.MpesaReceiptNumber = String(p.Value);
         if (p.Key === 'TransactionDate') out.TransactionDate = String(p.Value);
-        if (p.Key === 'PhoneNumber' || p.Key === 'Phone Number') out.PhoneNumber = String(p.Value);
+        if (p.Key === 'PhoneNumber' || p.Key === 'Phone Number')
+          out.PhoneNumber = String(p.Value);
       }
       return out;
     }
@@ -201,9 +233,12 @@ export class MpesaService {
     if (items) {
       for (const it of items) {
         if (it.Name === 'Amount') out.Amount = String(it.Value);
-        if (it.Name === 'MpesaReceiptNumber') out.MpesaReceiptNumber = String(it.Value);
-        if (it.Name === 'TransactionDate') out.TransactionDate = String(it.Value);
-        if (it.Name === 'PhoneNumber' || it.Name === 'Phone Number') out.PhoneNumber = String(it.Value);
+        if (it.Name === 'MpesaReceiptNumber')
+          out.MpesaReceiptNumber = String(it.Value);
+        if (it.Name === 'TransactionDate')
+          out.TransactionDate = String(it.Value);
+        if (it.Name === 'PhoneNumber' || it.Name === 'Phone Number')
+          out.PhoneNumber = String(it.Value);
       }
     }
     return out;
@@ -226,7 +261,9 @@ export class MpesaService {
     return b.Body?.stkCallback ?? b.stkCallback;
   }
 
-  static callbackMetadataItems(stk: StkCallbackInner | undefined): Record<string, string | number> {
+  static callbackMetadataItems(
+    stk: StkCallbackInner | undefined,
+  ): Record<string, string | number> {
     const map: Record<string, string | number> = {};
     const items = stk?.CallbackMetadata?.Item ?? [];
     for (const it of items) {

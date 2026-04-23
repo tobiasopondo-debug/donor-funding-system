@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { DonationStatus, OrganizationStatus, ProjectStatus } from '@prisma/client';
+import {
+  DonationStatus,
+  OrganizationStatus,
+  ProjectStatus,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -7,16 +11,22 @@ export class ReportsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async publicStats() {
-    const [totalRaised, approvedOrgCount, publishedProjectCount] = await Promise.all([
-      this.prisma.donation.aggregate({
-        where: { status: DonationStatus.SUCCEEDED },
-        _sum: { amountMinor: true },
-      }),
-      this.prisma.organization.count({ where: { status: OrganizationStatus.APPROVED } }),
-      this.prisma.project.count({
-        where: { status: ProjectStatus.PUBLISHED, organization: { status: OrganizationStatus.APPROVED } },
-      }),
-    ]);
+    const [totalRaised, approvedOrgCount, publishedProjectCount] =
+      await Promise.all([
+        this.prisma.donation.aggregate({
+          where: { status: DonationStatus.SUCCEEDED },
+          _sum: { amountMinor: true },
+        }),
+        this.prisma.organization.count({
+          where: { status: OrganizationStatus.APPROVED },
+        }),
+        this.prisma.project.count({
+          where: {
+            status: ProjectStatus.PUBLISHED,
+            organization: { status: OrganizationStatus.APPROVED },
+          },
+        }),
+      ]);
     return {
       totalRaisedMinor: totalRaised._sum.amountMinor ?? 0,
       approvedOrgCount,
@@ -32,7 +42,10 @@ export class ReportsService {
       where: { status: DonationStatus.SUCCEEDED, createdAt: { gte: since } },
       select: { createdAt: true, amountMinor: true },
     });
-    const byDay = new Map<string, { day: string; amountMinor: number; count: number }>();
+    const byDay = new Map<
+      string,
+      { day: string; amountMinor: number; count: number }
+    >();
     for (const d of donations) {
       const key = d.createdAt.toISOString().slice(0, 10);
       const cur = byDay.get(key) ?? { day: key, amountMinor: 0, count: 0 };
@@ -53,49 +66,62 @@ export class ReportsService {
 
   async adminDashboard() {
     const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const [pendingOrgs, totalRaised, donations7d, topProjects, pendingOrgList, recentDonations] =
-      await Promise.all([
-        this.prisma.organization.count({ where: { status: OrganizationStatus.PENDING_REVIEW } }),
-        this.prisma.donation.aggregate({
-          where: { status: DonationStatus.SUCCEEDED },
-          _sum: { amountMinor: true },
-          _count: true,
-        }),
-        this.prisma.donation.count({
-          where: { status: DonationStatus.SUCCEEDED, createdAt: { gte: since } },
-        }),
-        this.prisma.project.findMany({
-          where: { status: 'PUBLISHED' },
-          orderBy: { raisedAmountMinor: 'desc' },
-          take: 8,
-          select: {
-            id: true,
-            title: true,
-            raisedAmountMinor: true,
-            goalAmountMinor: true,
-            organization: { select: { displayName: true } },
+    const [
+      pendingOrgs,
+      totalRaised,
+      donations7d,
+      topProjects,
+      pendingOrgList,
+      recentDonations,
+    ] = await Promise.all([
+      this.prisma.organization.count({
+        where: { status: OrganizationStatus.PENDING_REVIEW },
+      }),
+      this.prisma.donation.aggregate({
+        where: { status: DonationStatus.SUCCEEDED },
+        _sum: { amountMinor: true },
+        _count: true,
+      }),
+      this.prisma.donation.count({
+        where: { status: DonationStatus.SUCCEEDED, createdAt: { gte: since } },
+      }),
+      this.prisma.project.findMany({
+        where: { status: 'PUBLISHED' },
+        orderBy: { raisedAmountMinor: 'desc' },
+        take: 8,
+        select: {
+          id: true,
+          title: true,
+          raisedAmountMinor: true,
+          goalAmountMinor: true,
+          organization: { select: { displayName: true } },
+        },
+      }),
+      this.prisma.organization.findMany({
+        where: { status: OrganizationStatus.PENDING_REVIEW },
+        orderBy: { createdAt: 'asc' },
+        take: 20,
+        select: { id: true, displayName: true },
+      }),
+      this.prisma.donation.findMany({
+        where: { status: DonationStatus.SUCCEEDED },
+        orderBy: { createdAt: 'desc' },
+        take: 15,
+        select: {
+          id: true,
+          amountMinor: true,
+          currency: true,
+          createdAt: true,
+          project: {
+            select: {
+              title: true,
+              organization: { select: { displayName: true } },
+            },
           },
-        }),
-        this.prisma.organization.findMany({
-          where: { status: OrganizationStatus.PENDING_REVIEW },
-          orderBy: { createdAt: 'asc' },
-          take: 20,
-          select: { id: true, displayName: true },
-        }),
-        this.prisma.donation.findMany({
-          where: { status: DonationStatus.SUCCEEDED },
-          orderBy: { createdAt: 'desc' },
-          take: 15,
-          select: {
-            id: true,
-            amountMinor: true,
-            currency: true,
-            createdAt: true,
-            project: { select: { title: true, organization: { select: { displayName: true } } } },
-            donor: { select: { email: true } },
-          },
-        }),
-      ]);
+          donor: { select: { email: true } },
+        },
+      }),
+    ]);
     return {
       pendingOrgReviews: pendingOrgs,
       totalRaisedMinor: totalRaised._sum.amountMinor ?? 0,
@@ -108,14 +134,20 @@ export class ReportsService {
   }
 
   async ngoDashboard(userId: string) {
-    const org = await this.prisma.organization.findUnique({ where: { ownerUserId: userId } });
+    const org = await this.prisma.organization.findUnique({
+      where: { ownerUserId: userId },
+    });
     if (!org) return { organization: null, projects: [], recentDonations: [] };
     const [projects, recentDonations] = await Promise.all([
       this.prisma.project.findMany({
         where: { orgId: org.id },
         orderBy: { updatedAt: 'desc' },
         include: {
-          _count: { select: { donations: { where: { status: DonationStatus.SUCCEEDED } } } },
+          _count: {
+            select: {
+              donations: { where: { status: DonationStatus.SUCCEEDED } },
+            },
+          },
         },
       }),
       this.prisma.donation.findMany({
@@ -141,7 +173,9 @@ export class ReportsService {
         where: { donorUserId: donorId, status: DonationStatus.SUCCEEDED },
         _sum: { amountMinor: true },
       }),
-      this.prisma.donation.count({ where: { donorUserId: donorId, status: DonationStatus.SUCCEEDED } }),
+      this.prisma.donation.count({
+        where: { donorUserId: donorId, status: DonationStatus.SUCCEEDED },
+      }),
     ]);
     return { totalGivenMinor: total._sum.amountMinor ?? 0, giftCount: count };
   }

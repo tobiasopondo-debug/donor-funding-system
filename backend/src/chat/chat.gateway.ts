@@ -18,7 +18,10 @@ type SocketUser = { id: string; role: UserRole };
 
 @WebSocketGateway({
   namespace: '/chat',
-  cors: { origin: process.env.CORS_ORIGIN ?? 'http://localhost:3000', credentials: true },
+  cors: {
+    origin: process.env.CORS_ORIGIN ?? 'http://localhost:3000',
+    credentials: true,
+  },
 })
 export class ChatGateway implements OnGatewayConnection {
   @WebSocketServer()
@@ -33,19 +36,25 @@ export class ChatGateway implements OnGatewayConnection {
   ) {}
 
   async handleConnection(client: Socket) {
-    const token = (client.handshake.auth as { token?: string } | undefined)?.token;
+    const token = (client.handshake.auth as { token?: string } | undefined)
+      ?.token;
     if (!token) {
       client.disconnect(true);
       return;
     }
     try {
       const payload = this.jwt.verify<JwtPayload>(token);
-      const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
+      const user = await this.prisma.user.findUnique({
+        where: { id: payload.sub },
+      });
       if (!user) {
         client.disconnect(true);
         return;
       }
-      (client.data as { user?: SocketUser }).user = { id: user.id, role: user.role };
+      (client.data as { user?: SocketUser }).user = {
+        id: user.id,
+        role: user.role,
+      };
     } catch (e) {
       this.logger.warn(`WS auth failed: ${String(e)}`);
       client.disconnect(true);
@@ -66,8 +75,14 @@ export class ChatGateway implements OnGatewayConnection {
     @MessageBody() body: { orgId: string; body: string },
   ) {
     const u = (client.data as { user?: SocketUser }).user;
-    if (!u || !body?.orgId || typeof body.body !== 'string') return { ok: false };
-    const msg = await this.chat.postMessage(u.id, u.role, body.orgId, body.body);
+    if (!u || !body?.orgId || typeof body.body !== 'string')
+      return { ok: false };
+    const msg = await this.chat.postMessage(
+      u.id,
+      u.role,
+      body.orgId,
+      body.body,
+    );
     this.server.to(this.roomName(body.orgId)).emit('message', msg);
     return { ok: true, message: msg };
   }

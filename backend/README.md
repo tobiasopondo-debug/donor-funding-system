@@ -105,3 +105,20 @@ cd backend
 npx prisma migrate status   # should say: Database schema is up to date
 npx prisma db seed           # re-seeds admin user
 npm run start:dev
+
+## Email OTP (sign-in and registration)
+
+Donors and NGO users receive a **6-digit code by email** after password entry (login) or after submitting the registration form. Configure outbound mail on the API:
+
+| Variable | Description |
+|----------|-------------|
+| `SMTP_HOST` | SMTP server hostname (e.g. `smtp.gmail.com`) |
+| `SMTP_PORT` | Port (default `587`) |
+| `SMTP_SECURE` | `true` for TLS on 465, usually `false` for 587 STARTTLS |
+| `SMTP_USER` | SMTP username (often your full email) |
+| `SMTP_PASS` | App password or SMTP secret |
+| `SMTP_FROM_EMAIL` | From address (must be allowed by your provider) |
+| `SMTP_FROM_NAME` | Optional display name (default: `DonorConnect Kenya`) |
+| `SMTP_TLS_REJECT_UNAUTHORIZED` | Default `true`. Set to `false` only for **local/dev** when Node reports `self-signed certificate in certificate chain` (e.g. corporate TLS inspection). **Do not disable in production** unless you understand the MITM risk. |
+
+The **seeded platform admin** (`SEED_ADMIN_EMAIL`, default `admin@example.com`) **skips** email OTP so automated and local admin login still work without mail.

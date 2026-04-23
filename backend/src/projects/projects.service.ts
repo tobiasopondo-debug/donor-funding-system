@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { OrganizationStatus, ProjectStatus, UserRole } from '@prisma/client';
+import { OrganizationStatus, ProjectStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProjectDto, UpdateProjectDto } from './dto/project.dto';
 
@@ -14,7 +14,10 @@ export class ProjectsService {
 
   async listPublished() {
     return this.prisma.project.findMany({
-      where: { status: ProjectStatus.PUBLISHED, organization: { status: OrganizationStatus.APPROVED } },
+      where: {
+        status: ProjectStatus.PUBLISHED,
+        organization: { status: OrganizationStatus.APPROVED },
+      },
       include: {
         organization: { select: { id: true, displayName: true, status: true } },
         files: {
@@ -44,7 +47,9 @@ export class ProjectsService {
   }
 
   async listMine(userId: string) {
-    const org = await this.prisma.organization.findUnique({ where: { ownerUserId: userId } });
+    const org = await this.prisma.organization.findUnique({
+      where: { ownerUserId: userId },
+    });
     if (!org) return [];
     return this.prisma.project.findMany({
       where: { orgId: org.id },
@@ -60,10 +65,14 @@ export class ProjectsService {
   }
 
   async create(userId: string, dto: CreateProjectDto) {
-    const org = await this.prisma.organization.findUnique({ where: { ownerUserId: userId } });
+    const org = await this.prisma.organization.findUnique({
+      where: { ownerUserId: userId },
+    });
     if (!org) throw new NotFoundException('Organization required');
     if (org.status !== OrganizationStatus.APPROVED) {
-      throw new BadRequestException('Organization must be approved to create projects');
+      throw new BadRequestException(
+        'Organization must be approved to create projects',
+      );
     }
     return this.prisma.project.create({
       data: {
@@ -90,15 +99,27 @@ export class ProjectsService {
         description: dto.description ?? p.description,
         goalAmountMinor: dto.goalAmountMinor ?? p.goalAmountMinor,
         currency: dto.currency ?? p.currency,
-        startDate: dto.startDate !== undefined ? (dto.startDate ? new Date(dto.startDate) : null) : undefined,
-        endDate: dto.endDate !== undefined ? (dto.endDate ? new Date(dto.endDate) : null) : undefined,
+        startDate:
+          dto.startDate !== undefined
+            ? dto.startDate
+              ? new Date(dto.startDate)
+              : null
+            : undefined,
+        endDate:
+          dto.endDate !== undefined
+            ? dto.endDate
+              ? new Date(dto.endDate)
+              : null
+            : undefined,
       },
     });
   }
 
   async publish(userId: string, projectId: string) {
     const p = await this.requireOwnerProject(userId, projectId);
-    const org = await this.prisma.organization.findUnique({ where: { id: p.orgId } });
+    const org = await this.prisma.organization.findUnique({
+      where: { id: p.orgId },
+    });
     if (!org || org.status !== OrganizationStatus.APPROVED) {
       throw new BadRequestException('Organization must be approved');
     }
@@ -117,9 +138,13 @@ export class ProjectsService {
   }
 
   private async requireOwnerProject(userId: string, projectId: string) {
-    const org = await this.prisma.organization.findUnique({ where: { ownerUserId: userId } });
+    const org = await this.prisma.organization.findUnique({
+      where: { ownerUserId: userId },
+    });
     if (!org) throw new ForbiddenException();
-    const p = await this.prisma.project.findFirst({ where: { id: projectId, orgId: org.id } });
+    const p = await this.prisma.project.findFirst({
+      where: { id: projectId, orgId: org.id },
+    });
     if (!p) throw new NotFoundException();
     return p;
   }

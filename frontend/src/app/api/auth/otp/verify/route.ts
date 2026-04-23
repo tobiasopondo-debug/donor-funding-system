@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { jsonWithRefreshCookie } from "../refresh-cookie";
-import { readUpstreamJson } from "../upstream";
+import { jsonWithRefreshCookie } from "../../refresh-cookie";
+import { readUpstreamJson } from "../../upstream";
 
 const API = process.env.INTERNAL_API_URL ?? "http://localhost:4000";
 
@@ -8,17 +8,14 @@ type AuthPayload = {
   accessToken?: string;
   refreshToken?: string;
   user?: unknown;
-  requiresOtp?: boolean;
-  challengeId?: string;
-  purpose?: "REGISTER" | "LOGIN";
-  message?: string;
+  message?: string | string[];
 };
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
   let r: Response;
   try {
-    r = await fetch(`${API}/auth/register`, {
+    r = await fetch(`${API}/auth/otp/verify`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -36,13 +33,6 @@ export async function POST(req: NextRequest) {
   const data = parsed.data;
   if (!r.ok) {
     return NextResponse.json(data, { status: r.status });
-  }
-  if (data.requiresOtp && data.challengeId) {
-    return NextResponse.json({
-      requiresOtp: true,
-      challengeId: data.challengeId,
-      purpose: data.purpose ?? "REGISTER",
-    });
   }
   if (!data.accessToken || !data.refreshToken) {
     return NextResponse.json({ message: "Invalid auth response" }, { status: 500 });

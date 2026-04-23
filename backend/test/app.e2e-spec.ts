@@ -16,6 +16,9 @@ describe('App (e2e)', () => {
   });
 
   it('health: auth route exists', () => {
-    return request(app.getHttpServer()).post('/auth/login').send({}).expect(400);
+    return request(app.getHttpServer())
+      .post('/auth/login')
+      .send({})
+      .expect(400);
   });
 });

@@ -1,7 +1,10 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { UserRole } from '@prisma/client';
-import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
+import {
+  CurrentUser,
+  AuthUser,
+} from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { PostChatMessageDto } from './dto/chat.dto';
@@ -26,6 +29,11 @@ export class ChatController {
     @Param('orgId') orgId: string,
     @Body() dto: PostChatMessageDto,
   ) {
-    return this.chat.postMessage(user.id, user.role as UserRole, orgId, dto.body);
+    return this.chat.postMessage(
+      user.id,
+      user.role as UserRole,
+      orgId,
+      dto.body,
+    );
   }
 }

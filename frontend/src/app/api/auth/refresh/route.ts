@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookieSecureFlag } from "../refresh-cookie";
 import { readUpstreamJson } from "../upstream";
 
 const API = process.env.INTERNAL_API_URL ?? "http://localhost:4000";
@@ -50,7 +51,7 @@ export async function POST(req: NextRequest) {
     path: "/",
     sameSite: "lax",
     maxAge: 60 * 60 * 24 * 7,
-    secure: process.env.NODE_ENV === "production",
+    secure: cookieSecureFlag(req),
   });
   return res;
 }

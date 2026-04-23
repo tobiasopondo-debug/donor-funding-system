@@ -6,7 +6,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { DonationStatus, OrganizationStatus, ProjectStatus, UserRole } from '@prisma/client';
+import {
+  DonationStatus,
+  OrganizationStatus,
+  ProjectStatus,
+  UserRole,
+} from '@prisma/client';
 import Stripe from 'stripe';
 import { MpesaService } from '../mpesa/mpesa.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -53,8 +58,14 @@ export class DonationsService {
     });
   }
 
-  async createCheckout(donorId: string, role: UserRole, projectId: string, amountMinor: number) {
-    if (role !== UserRole.DONOR) throw new BadRequestException('Only donors can donate');
+  async createCheckout(
+    donorId: string,
+    role: UserRole,
+    projectId: string,
+    amountMinor: number,
+  ) {
+    if (role !== UserRole.DONOR)
+      throw new BadRequestException('Only donors can donate');
     const project = await this.prisma.project.findFirst({
       where: {
         id: projectId,
@@ -67,36 +78,34 @@ export class DonationsService {
     const currency = project.currency.toLowerCase();
     const publicUrl = this.config.getOrThrow('PUBLIC_WEB_URL');
     const stripe = this.getStripe();
-    const session = await stripe.checkout.sessions.create(
-      {
-        mode: 'payment',
-        line_items: [
-          {
-            price_data: {
-              currency,
-              unit_amount: amountMinor,
-              product_data: {
-                name: project.title,
-                description: project.summary.slice(0, 500),
-              },
+    const session = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      line_items: [
+        {
+          price_data: {
+            currency,
+            unit_amount: amountMinor,
+            product_data: {
+              name: project.title,
+              description: project.summary.slice(0, 500),
             },
-            quantity: 1,
           },
-        ],
-        success_url: `${publicUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${publicUrl}/cancel?project_id=${encodeURIComponent(projectId)}`,
+          quantity: 1,
+        },
+      ],
+      success_url: `${publicUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${publicUrl}/cancel?project_id=${encodeURIComponent(projectId)}`,
+      metadata: {
+        projectId: project.id,
+        donorUserId: donorId,
+      },
+      payment_intent_data: {
         metadata: {
           projectId: project.id,
           donorUserId: donorId,
         },
-        payment_intent_data: {
-          metadata: {
-            projectId: project.id,
-            donorUserId: donorId,
-          },
-        },
-      } as Stripe.Checkout.SessionCreateParams,
-    );
+      },
+    } as Stripe.Checkout.SessionCreateParams);
     await this.prisma.donation.create({
       data: {
         donorUserId: donorId,
@@ -130,7 +139,9 @@ export class DonationsService {
   }
 
   /** Idempotent: safe if webhook already ran. */
-  private async finalizeCheckoutSessionIfNeeded(session: Stripe.Checkout.Session): Promise<{ updated: boolean }> {
+  private async finalizeCheckoutSessionIfNeeded(
+    session: Stripe.Checkout.Session,
+  ): Promise<{ updated: boolean }> {
     const projectId = session.metadata?.projectId;
     const donorUserId = session.metadata?.donorUserId;
     if (!projectId || !donorUserId) return { updated: false };
@@ -157,7 +168,10 @@ export class DonationsService {
     return { updated: true };
   }
 
-  async handleStripeEvent(rawBody: Buffer, signature: string | string[] | undefined) {
+  async handleStripeEvent(
+    rawBody: Buffer,
+    signature: string | string[] | undefined,
+  ) {
     if (!signature) return { received: false };
     const whSecret = this.config.get<string>('STRIPE_WEBHOOK_SECRET')?.trim();
     const apiKey = this.config.get<string>('STRIPE_SECRET_KEY')?.trim();
@@ -170,13 +184,21 @@ export class DonationsService {
     const stripe = this.getStripe();
     let event: Stripe.Event;
     try {
-      event = stripe.webhooks.constructEvent(rawBody, signature as string, whSecret);
+      event = stripe.webhooks.constructEvent(
+        rawBody,
+        signature as string,
+        whSecret,
+      );
     } catch {
       return { received: false, error: 'sig' };
     }
-    const existing = await this.prisma.stripeEvent.findUnique({ where: { stripeId: event.id } });
+    const existing = await this.prisma.stripeEvent.findUnique({
+      where: { stripeId: event.id },
+    });
     if (existing) return { received: true, duplicate: true };
-    await this.prisma.stripeEvent.create({ data: { stripeId: event.id, type: event.type } });
+    await this.prisma.stripeEvent.create({
+      data: { stripeId: event.id, type: event.type },
+    });
 
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object as Stripe.Checkout.Session;
@@ -197,8 +219,13 @@ export class DonationsService {
     }
   }
 
-  async initiateMpesaStk(donorId: string, role: UserRole, body: MpesaInitiateDto) {
-    if (role !== UserRole.DONOR) throw new BadRequestException('Only donors can donate');
+  async initiateMpesaStk(
+    donorId: string,
+    role: UserRole,
+    body: MpesaInitiateDto,
+  ) {
+    if (role !== UserRole.DONOR)
+      throw new BadRequestException('Only donors can donate');
     this.assertMpesaEnv();
     const project = await this.prisma.project.findFirst({
       where: {
@@ -209,19 +236,29 @@ export class DonationsService {
     });
     if (!project) throw new NotFoundException();
     if (project.currency.toUpperCase() !== 'KES') {
-      throw new BadRequestException('M-Pesa is only available for KES projects');
+      throw new BadRequestException(
+        'M-Pesa is only available for KES projects',
+      );
     }
     const phone254 = this.mpesa.normalizeKenyaPhone(body.phone);
     if (!phone254) throw new BadRequestException('Invalid Kenya phone number');
-    const amountShillings = MpesaService.kesShillingsFromStripeMinorUnits(body.amountMinor);
+    const amountShillings = MpesaService.kesShillingsFromStripeMinorUnits(
+      body.amountMinor,
+    );
     const stk = await this.mpesa.initiateStkPush({
       phone254,
       amountShillings,
       accountReference: project.id.slice(0, 12),
       transactionDesc: 'Donation',
     });
-    if (stk.ResponseCode !== '0' || !stk.MerchantRequestID || !stk.CheckoutRequestID) {
-      throw new BadRequestException(stk.ResponseDescription ?? stk.CustomerMessage ?? 'STK request failed');
+    if (
+      stk.ResponseCode !== '0' ||
+      !stk.MerchantRequestID ||
+      !stk.CheckoutRequestID
+    ) {
+      throw new BadRequestException(
+        stk.ResponseDescription ?? stk.CustomerMessage ?? 'STK request failed',
+      );
     }
     const donation = await this.prisma.donation.create({
       data: {
@@ -253,13 +290,17 @@ export class DonationsService {
       where: { mpesaMerchantRequestId: stk.MerchantRequestID },
     });
     if (!donation) {
-      this.logger.warn(`No donation for MerchantRequestID ${stk.MerchantRequestID}`);
+      this.logger.warn(
+        `No donation for MerchantRequestID ${stk.MerchantRequestID}`,
+      );
       return { ok: false };
     }
-    if (donation.status === DonationStatus.SUCCEEDED) return { ok: true, duplicate: true };
+    if (donation.status === DonationStatus.SUCCEEDED)
+      return { ok: true, duplicate: true };
     if (stk.ResultCode === 0) {
       const meta = MpesaService.callbackMetadataItems(stk);
-      const receipt = meta.MpesaReceiptNumber != null ? String(meta.MpesaReceiptNumber) : '';
+      const receipt =
+        meta.MpesaReceiptNumber != null ? String(meta.MpesaReceiptNumber) : '';
       await this.finalizeMpesaDonationSuccess(donation.id, receipt || null);
       return { ok: true };
     }
@@ -280,18 +321,38 @@ export class DonationsService {
       throw new BadRequestException('Not an M-Pesa donation');
     }
     if (donation.status === DonationStatus.SUCCEEDED) {
-      return { status: donation.status, mpesaReceiptNumber: donation.mpesaReceiptNumber };
+      return {
+        status: donation.status,
+        mpesaReceiptNumber: donation.mpesaReceiptNumber,
+      };
     }
-    const q = await this.mpesa.queryStkStatus(donation.mpesaCheckoutRequestId, donation.mpesaMerchantRequestId);
+    const q = await this.mpesa.queryStkStatus(
+      donation.mpesaCheckoutRequestId,
+      donation.mpesaMerchantRequestId,
+    );
     if (Number(q.ResultCode) === 0 && q.MpesaReceiptNumber?.length) {
-      await this.finalizeMpesaDonationSuccess(donation.id, q.MpesaReceiptNumber);
-      const updated = await this.prisma.donation.findUnique({ where: { id: donation.id } });
-      return { status: updated?.status, mpesaReceiptNumber: updated?.mpesaReceiptNumber };
+      await this.finalizeMpesaDonationSuccess(
+        donation.id,
+        q.MpesaReceiptNumber,
+      );
+      const updated = await this.prisma.donation.findUnique({
+        where: { id: donation.id },
+      });
+      return {
+        status: updated?.status,
+        mpesaReceiptNumber: updated?.mpesaReceiptNumber,
+      };
     }
-    return { status: donation.status, mpesaQuery: { resultCode: q.ResultCode, resultDesc: q.ResultDesc } };
+    return {
+      status: donation.status,
+      mpesaQuery: { resultCode: q.ResultCode, resultDesc: q.ResultDesc },
+    };
   }
 
-  private async finalizeMpesaDonationSuccess(donationId: string, mpesaReceiptNumber: string | null) {
+  private async finalizeMpesaDonationSuccess(
+    donationId: string,
+    mpesaReceiptNumber: string | null,
+  ) {
     await this.prisma.$transaction(async (tx) => {
       const d = await tx.donation.findUnique({ where: { id: donationId } });
       if (!d || d.status !== DonationStatus.PENDING) return;

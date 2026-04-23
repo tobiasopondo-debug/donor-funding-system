@@ -1,5 +1,5 @@
 import { UserRole } from '@prisma/client';
-import { IsEmail, IsIn, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsIn, IsString, Matches, MinLength } from 'class-validator';
 
 export class RegisterDto {
   @IsEmail()
@@ -19,4 +19,20 @@ export class LoginDto {
 
   @IsString()
   password: string;
+}
+
+export class VerifyOtpDto {
+  @IsString()
+  @MinLength(10)
+  challengeId: string;
+
+  @IsString()
+  @Matches(/^\d{6}$/, { message: 'Code must be exactly 6 digits' })
+  code: string;
+}
+
+export class ResendOtpDto {
+  @IsString()
+  @MinLength(10)
+  challengeId: string;
 }

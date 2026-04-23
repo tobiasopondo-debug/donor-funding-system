@@ -1,4 +1,9 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { OrganizationStatus, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpsertRatingDto } from './dto/rating.dto';
@@ -22,7 +27,13 @@ export class RatingsService {
         where: { orgId },
         orderBy: { createdAt: 'desc' },
         take: 50,
-        select: { id: true, score: true, comment: true, createdAt: true, donor: { select: { email: true } } },
+        select: {
+          id: true,
+          score: true,
+          comment: true,
+          createdAt: true,
+          donor: { select: { email: true } },
+        },
       }),
     ]);
     return {
@@ -33,7 +44,9 @@ export class RatingsService {
         score: r.score,
         comment: r.comment,
         createdAt: r.createdAt,
-        donorLabel: r.donor.email ? `Donor ${r.donor.email.slice(0, 1)}…` : 'Donor',
+        donorLabel: r.donor.email
+          ? `Donor ${r.donor.email.slice(0, 1)}…`
+          : 'Donor',
       })),
     };
   }

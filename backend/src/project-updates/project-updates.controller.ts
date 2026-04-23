@@ -1,7 +1,10 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { UserRole } from '@prisma/client';
-import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
+import {
+  CurrentUser,
+  AuthUser,
+} from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { CreateProjectUpdateDto } from './dto/project-update.dto';
@@ -24,6 +27,11 @@ export class ProjectUpdatesController {
     @Param('projectId') projectId: string,
     @Body() dto: CreateProjectUpdateDto,
   ) {
-    return this.projectUpdates.create(user.id, user.role as UserRole, projectId, dto);
+    return this.projectUpdates.create(
+      user.id,
+      user.role as UserRole,
+      projectId,
+      dto,
+    );
   }
 }

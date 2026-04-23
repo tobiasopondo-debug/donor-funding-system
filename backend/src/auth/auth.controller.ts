@@ -2,8 +2,16 @@ import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Request } from 'express';
 import { AuthService } from './auth.service';
-import { LoginDto, RegisterDto } from './dto/auth.dto';
-import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
+import {
+  LoginDto,
+  RegisterDto,
+  ResendOtpDto,
+  VerifyOtpDto,
+} from './dto/auth.dto';
+import {
+  CurrentUser,
+  AuthUser,
+} from '../common/decorators/current-user.decorator';
 
 @Controller('auth')
 export class AuthController {
@@ -17,6 +25,16 @@ export class AuthController {
   @Post('login')
   login(@Body() dto: LoginDto) {
     return this.auth.login(dto);
+  }
+
+  @Post('otp/verify')
+  verifyOtp(@Body() dto: VerifyOtpDto) {
+    return this.auth.verifyOtp(dto);
+  }
+
+  @Post('otp/resend')
+  resendOtp(@Body() dto: ResendOtpDto) {
+    return this.auth.resendOtp(dto);
   }
 
   @Post('refresh')

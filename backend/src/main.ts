@@ -26,7 +26,11 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
     }),
   );
-  app.enableCors({ origin, credentials: true, methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'] });
+  app.enableCors({
+    origin,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  });
   app.useWebSocketAdapter(new IoAdapter(app));
   const port = process.env.PORT ?? 4000;
   await app.listen(port);

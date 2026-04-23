@@ -7,7 +7,11 @@ import { StripeWebhookController } from './stripe-webhook.controller';
 
 @Module({
   imports: [MpesaModule],
-  controllers: [DonationsController, StripeWebhookController, MpesaStkWebhookController],
+  controllers: [
+    DonationsController,
+    StripeWebhookController,
+    MpesaStkWebhookController,
+  ],
   providers: [DonationsService],
   exports: [DonationsService],
 })
