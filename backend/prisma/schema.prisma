@@ -1,0 +1,204 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  DONOR
+  NGO_USER
+  PLATFORM_ADMIN
+}
+
+enum OrganizationStatus {
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+enum FileKind {
+  VERIFICATION_DOC
+  NGO_LOGO
+  NGO_BANNER
+  NGO_GALLERY
+  PROJECT_IMAGE
+}
+
+enum ProjectStatus {
+  DRAFT
+  PUBLISHED
+  PAUSED
+}
+
+enum DonationStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  passwordHash  String
+  role          UserRole
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  lastLoginAt   DateTime?
+  organization  Organization? @relation("OrgOwner")
+  orgReviews    Organization[] @relation("OrgReviewedBy")
+  uploadedFiles FileObject[] @relation("FileUploader")
+  donations     Donation[] @relation("DonorDonations")
+  refreshTokens RefreshToken[]
+  projectUpdates ProjectUpdate[] @relation("ProjectUpdateAuthor")
+  orgRatings     OrgRating[]     @relation("OrgRatingDonor")
+  chatMessages   ChatMessage[]   @relation("ChatMessageAuthor")
+}
+
+model Organization {
+  id               String   @id @default(cuid())
+  ownerUserId      String   @unique
+  owner            User     @relation("OrgOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  legalName        String
+  displayName      String
+  mission          String   @db.Text
+  location         String?
+  contactEmail     String
+  contactPhone     String?
+  status           OrganizationStatus @default(PENDING_REVIEW)
+  reviewNote       String?  @db.Text
+  reviewedAt       DateTime?
+  reviewedByUserId String?
+  reviewedBy       User?    @relation("OrgReviewedBy", fields: [reviewedByUserId], references: [id])
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  files            FileObject[] @relation("OrgFiles")
+  projects         Project[]
+  chatRoom         ChatRoom?
+  ratings          OrgRating[]
+}
+
+model FileObject {
+  id               String   @id @default(cuid())
+  bucket           String
+  objectKey        String
+  mimeType         String
+  sizeBytes        Int
+  kind             FileKind
+  ownerOrgId       String?
+  organization     Organization? @relation("OrgFiles", fields: [ownerOrgId], references: [id], onDelete: Cascade)
+  ownerProjectId  String?
+  project          Project?  @relation("ProjectFiles", fields: [ownerProjectId], references: [id], onDelete: Cascade)
+  uploadedByUserId String
+  uploader         User   @relation("FileUploader", fields: [uploadedByUserId], references: [id])
+  createdAt        DateTime @default(now())
+  deletedAt        DateTime?
+}
+
+model Project {
+  id               String   @id @default(cuid())
+  orgId            String
+  organization     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  title            String
+  summary          String   @db.Text
+  description      String   @db.Text
+  goalAmountMinor  Int
+  currency         String   @default("KES")
+  raisedAmountMinor Int     @default(0)
+  status           ProjectStatus @default(DRAFT)
+  publishedAt      DateTime?
+  startDate        DateTime?
+  endDate          DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  files            FileObject[] @relation("ProjectFiles")
+  donations        Donation[]
+  updates          ProjectUpdate[]
+  @@index([orgId, status])
+}
+
+model ProjectUpdate {
+  id             String   @id @default(cuid())
+  projectId      String
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  postedByUserId String
+  author         User     @relation("ProjectUpdateAuthor", fields: [postedByUserId], references: [id])
+  body           String   @db.Text
+  createdAt      DateTime @default(now())
+  @@index([projectId, createdAt])
+}
+
+model OrgRating {
+  id         String   @id @default(cuid())
+  orgId      String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  donorUserId String
+  donor      User     @relation("OrgRatingDonor", fields: [donorUserId], references: [id], onDelete: Cascade)
+  score      Int
+  comment    String?  @db.Text
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  @@unique([orgId, donorUserId])
+  @@index([orgId])
+}
+
+model ChatRoom {
+  id        String   @id @default(cuid())
+  orgId     String   @unique
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  messages  ChatMessage[]
+  createdAt DateTime @default(now())
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  roomId    String
+  room      ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation("ChatMessageAuthor", fields: [authorId], references: [id])
+  body      String   @db.Text
+  createdAt DateTime @default(now())
+  @@index([roomId, createdAt])
+}
+
+model Donation {
+  id                        String   @id @default(cuid())
+  donorUserId              String
+  donor                    User   @relation("DonorDonations", fields: [donorUserId], references: [id], onDelete: Cascade)
+  projectId                 String
+  project                   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  amountMinor              Int
+  currency                 String
+  status                   DonationStatus @default(PENDING)
+  stripeCheckoutSessionId  String?  @unique
+  stripePaymentIntentId    String?  @unique
+  mpesaMerchantRequestId   String?  @unique
+  mpesaCheckoutRequestId   String?
+  mpesaReceiptNumber       String?
+  mpesaPhone               String?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+  @@index([donorUserId, createdAt])
+}
+
+model RefreshToken {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime @default(now())
+  @@index([userId])
+}
+
+model StripeEvent {
+  id          String   @id @default(cuid())
+  stripeId    String   @unique
+  type        String
+  processedAt DateTime @default(now())
+}
