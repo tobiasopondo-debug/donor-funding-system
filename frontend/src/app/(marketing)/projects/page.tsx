@@ -1,4 +1,4 @@
-import { getApiBase } from "@/lib/api";
+import { getServerApiBase } from "@/lib/api";
 import { ProjectCardPublic } from "@/components/marketing/project-card-public";
 
 type Project = {
@@ -15,7 +15,7 @@ type Project = {
 export default async function ProjectsPage() {
   let projects: Project[] = [];
   try {
-    const r = await fetch(`${getApiBase()}/projects/public`, { next: { revalidate: 30 } });
+    const r = await fetch(`${getServerApiBase()}/projects/public`, { next: { revalidate: 30 } });
     if (r.ok) projects = await r.json();
   } catch {
     projects = [];

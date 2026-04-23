@@ -3,6 +3,11 @@ const getPublicApi = () =>
 
 export { getPublicApi as getApiBase };
 
+/** Server-only (RSC, Route Handlers). In Docker use INTERNAL_API_URL so fetches reach `api`, not `localhost` inside `web`. */
+export function getServerApiBase(): string {
+  return process.env.INTERNAL_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+}
+
 /** Stripe-style minor units → display (KES: 100 minor = 1 KES). */
 const ZERO_DECIMAL_CURRENCIES = new Set([
   "BIF",

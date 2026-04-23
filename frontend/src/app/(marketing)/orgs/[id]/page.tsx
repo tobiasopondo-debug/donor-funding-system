@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getApiBase } from "@/lib/api";
+import { getServerApiBase } from "@/lib/api";
 import { OrgProfilePublic } from "@/components/marketing/org-profile-public";
 
 export default async function OrgDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -23,7 +23,7 @@ export default async function OrgDetailPage({ params }: { params: Promise<{ id: 
   };
   let data: ApiOrg | null = null;
   try {
-    const r = await fetch(`${getApiBase()}/organizations/public/${id}`, { next: { revalidate: 30 } });
+    const r = await fetch(`${getServerApiBase()}/organizations/public/${id}`, { next: { revalidate: 30 } });
     if (r.ok) data = (await r.json()) as ApiOrg;
   } catch {
     data = null;

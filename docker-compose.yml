@@ -46,6 +46,8 @@ services:
       PORT: "4000"
       DATABASE_URL: postgresql://donor:donor@postgres:5432/donor_funding
       MINIO_ENDPOINT: http://minio:9000
+      # Browser uploads / signed image URLs (host must resolve on the user's machine)
+      MINIO_PUBLIC_ENDPOINT: ${MINIO_PUBLIC_ENDPOINT:-http://localhost:9000}
       MINIO_ACCESS_KEY: minio
       MINIO_SECRET_KEY: minio_minio
       MINIO_BUCKET_PRIVATE: ngo-private
@@ -53,8 +55,9 @@ services:
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
       PUBLIC_WEB_URL: ${PUBLIC_WEB_URL:-http://localhost:3000}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-change-me-in-production}
-      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-sk_test_change_me}
-      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-whsec_change_me}
+      # Stripe (https://dashboard.stripe.com): secret key + webhook signing secret — leave empty until configured.
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
       MPESA_ENVIRONMENT: ${MPESA_ENVIRONMENT:-sandbox}
       MPESA_CONSUMER_KEY: ${MPESA_CONSUMER_KEY:-}
       MPESA_CONSUMER_SECRET: ${MPESA_CONSUMER_SECRET:-}
@@ -66,7 +69,7 @@ services:
       [
         "sh",
         "-c",
-        "npx prisma migrate deploy && exec node dist/main.js",
+        "npx prisma migrate deploy && exec node dist/src/main.js",
       ]
   web:
     build:
@@ -76,6 +79,25 @@ services:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
     ports: ["3000:3000"]
     depends_on: [api]
+    environment:
+      # Server-side BFF routes must call the API by service name, not localhost.
+      INTERNAL_API_URL: ${INTERNAL_API_URL:-http://api:4000}
+
+  # Optional M-Pesa dev tunnel: `docker compose --profile mpesa up -d`
+  # Set NGROK_AUTHTOKEN, start stack, open http://localhost:4040 for the public https URL,
+  # then set MPESA_STK_CALLBACK_URL on `api` to https://<subdomain>.ngrok-free.app/webhooks/mpesa/stk (restart api).
+  ngrok:
+    image: ngrok/ngrok:latest
+    profiles: ["mpesa"]
+    depends_on:
+      api:
+        condition: service_started
+    restart: unless-stopped
+    command: ["http", "--log=stdout", "api:4000"]
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
+    ports: ["4040:4040"]
+
 volumes:
   pgdata:
   miniodata:

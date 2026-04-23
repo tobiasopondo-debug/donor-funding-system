@@ -1,4 +1,4 @@
-import { getApiBase } from "@/lib/api";
+import { getServerApiBase } from "@/lib/api";
 import { OrgCard } from "@/components/marketing/org-card";
 
 type Org = {
@@ -12,7 +12,7 @@ type Org = {
 export default async function OrgsPage() {
   let orgs: Org[] = [];
   try {
-    const r = await fetch(`${getApiBase()}/organizations/public`, { next: { revalidate: 30 } });
+    const r = await fetch(`${getServerApiBase()}/organizations/public`, { next: { revalidate: 30 } });
     if (r.ok) orgs = await r.json();
   } catch {
     orgs = [];

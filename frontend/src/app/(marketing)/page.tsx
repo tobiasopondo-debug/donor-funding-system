@@ -1,4 +1,4 @@
-import { getApiBase } from "@/lib/api";
+import { getServerApiBase } from "@/lib/api";
 import type { PublicStats } from "./hero-section";
 import { FeaturedGrid } from "./featured-grid";
 import { HeroSection } from "./hero-section";
@@ -17,8 +17,8 @@ export default async function LandingPage() {
   }[] = [];
   try {
     const [s, p] = await Promise.all([
-      fetch(`${getApiBase()}/reports/public`, { next: { revalidate: 60 } }),
-      fetch(`${getApiBase()}/projects/public`, { next: { revalidate: 60 } }),
+      fetch(`${getServerApiBase()}/reports/public`, { next: { revalidate: 60 } }),
+      fetch(`${getServerApiBase()}/projects/public`, { next: { revalidate: 60 } }),
     ]);
     if (s.ok) stats = (await s.json()) as PublicStats;
     if (p.ok) projects = (await p.json()) as typeof projects;

@@ -8,15 +8,27 @@ import { MpesaInitiateDto } from './dto/donation.dto';
 
 @Injectable()
 export class DonationsService {
-  private readonly stripe: Stripe;
+  private stripeClient: Stripe | null = null;
   private readonly logger = new Logger(DonationsService.name);
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
     private readonly mpesa: MpesaService,
-  ) {
-    this.stripe = new Stripe(this.config.getOrThrow('STRIPE_SECRET_KEY'));
+  ) {}
+
+  /** Stripe is optional at process start; configure STRIPE_SECRET_KEY before card checkout. */
+  private getStripe(): Stripe {
+    const key = this.config.get<string>('STRIPE_SECRET_KEY')?.trim();
+    if (!key) {
+      throw new BadRequestException(
+        'Stripe is not configured. Add STRIPE_SECRET_KEY (Dashboard → Developers → API keys, sk_test_… or sk_live_…) to the API environment and restart.',
+      );
+    }
+    if (!this.stripeClient) {
+      this.stripeClient = new Stripe(key);
+    }
+    return this.stripeClient;
   }
 
   async listMine(donorId: string) {
@@ -48,7 +60,8 @@ export class DonationsService {
     if (!project) throw new NotFoundException();
     const currency = project.currency.toLowerCase();
     const publicUrl = this.config.getOrThrow('PUBLIC_WEB_URL');
-    const session = await this.stripe.checkout.sessions.create(
+    const stripe = this.getStripe();
+    const session = await stripe.checkout.sessions.create(
       {
         mode: 'payment',
         line_items: [
@@ -93,10 +106,18 @@ export class DonationsService {
 
   async handleStripeEvent(rawBody: Buffer, signature: string | string[] | undefined) {
     if (!signature) return { received: false };
-    const whSecret = this.config.getOrThrow('STRIPE_WEBHOOK_SECRET');
+    const whSecret = this.config.get<string>('STRIPE_WEBHOOK_SECRET')?.trim();
+    const apiKey = this.config.get<string>('STRIPE_SECRET_KEY')?.trim();
+    if (!whSecret || !apiKey) {
+      this.logger.warn(
+        'Stripe webhook ignored: set STRIPE_WEBHOOK_SECRET (e.g. from `stripe listen`) and STRIPE_SECRET_KEY',
+      );
+      return { received: false, error: 'stripe_not_configured' };
+    }
+    const stripe = this.getStripe();
     let event: Stripe.Event;
     try {
-      event = this.stripe.webhooks.constructEvent(rawBody, signature as string, whSecret);
+      event = stripe.webhooks.constructEvent(rawBody, signature as string, whSecret);
     } catch {
       return { received: false, error: 'sig' };
     }

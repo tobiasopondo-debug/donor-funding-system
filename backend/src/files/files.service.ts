@@ -13,7 +13,11 @@ import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class FilesService {
-  private readonly s3: S3Client;
+  /**
+   * Presigned URLs must use a host the browser can resolve (not Docker service names).
+   * Set MINIO_PUBLIC_ENDPOINT (e.g. http://localhost:9000) when MINIO_ENDPOINT is in-cluster only.
+   */
+  private readonly s3Presign: S3Client;
   private readonly privateBucket: string;
   private readonly publicBucket: string;
 
@@ -21,14 +25,17 @@ export class FilesService {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
   ) {
-    this.s3 = new S3Client({
+    const internal = this.config.get('MINIO_ENDPOINT');
+    const publicEndpoint = this.config.get('MINIO_PUBLIC_ENDPOINT') ?? internal;
+    const credentials = {
+      accessKeyId: this.config.getOrThrow('MINIO_ACCESS_KEY'),
+      secretAccessKey: this.config.getOrThrow('MINIO_SECRET_KEY'),
+    };
+    this.s3Presign = new S3Client({
       region: 'us-east-1',
-      endpoint: this.config.get('MINIO_ENDPOINT'),
+      endpoint: publicEndpoint,
       forcePathStyle: true,
-      credentials: {
-        accessKeyId: this.config.getOrThrow('MINIO_ACCESS_KEY'),
-        secretAccessKey: this.config.getOrThrow('MINIO_SECRET_KEY'),
-      },
+      credentials,
     });
     this.privateBucket = this.config.getOrThrow('MINIO_BUCKET_PRIVATE');
     this.publicBucket = this.config.getOrThrow('MINIO_BUCKET_PUBLIC');
@@ -63,7 +70,7 @@ export class FilesService {
       ContentType: dto.mimeType,
       ContentLength: dto.sizeBytes,
     });
-    const uploadUrl = await getSignedUrl(this.s3, cmd, { expiresIn: 3600 });
+    const uploadUrl = await getSignedUrl(this.s3Presign, cmd, { expiresIn: 3600 });
     return { uploadUrl, objectKey, bucket, expiresIn: 3600 };
   }
 
@@ -118,7 +125,7 @@ export class FilesService {
       }
     }
     const cmd = new GetObjectCommand({ Bucket: file.bucket, Key: file.objectKey });
-    const url = await getSignedUrl(this.s3, cmd, { expiresIn: 300 });
+    const url = await getSignedUrl(this.s3Presign, cmd, { expiresIn: 300 });
     return { url, expiresIn: 300 };
   }
 
@@ -126,7 +133,7 @@ export class FilesService {
     const file = await this.prisma.fileObject.findUnique({ where: { id: fileId } });
     if (!file || file.deletedAt) throw new NotFoundException();
     const cmd = new GetObjectCommand({ Bucket: file.bucket, Key: file.objectKey });
-    const url = await getSignedUrl(this.s3, cmd, { expiresIn: 300 });
+    const url = await getSignedUrl(this.s3Presign, cmd, { expiresIn: 300 });
     return { url, expiresIn: 300 };
   }
 
@@ -140,7 +147,7 @@ export class FilesService {
     const org = file.organization;
     if (!org || org.status !== OrganizationStatus.APPROVED) throw new ForbiddenException();
     const cmd = new GetObjectCommand({ Bucket: file.bucket, Key: file.objectKey });
-    const url = await getSignedUrl(this.s3, cmd, { expiresIn: 300 });
+    const url = await getSignedUrl(this.s3Presign, cmd, { expiresIn: 300 });
     return { url, expiresIn: 300 };
   }
 

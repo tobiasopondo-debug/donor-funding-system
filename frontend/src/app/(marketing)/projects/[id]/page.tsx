@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { ProjectDetailHero } from "@/components/marketing/project-detail-hero";
 import { ProjectMarkdownBody } from "@/components/marketing/project-markdown-body";
 import { ProjectUpdatesList } from "@/components/marketing/project-updates-list";
-import { formatKES, getApiBase } from "@/lib/api";
+import { formatKES, getServerApiBase } from "@/lib/api";
 import { DonateBox } from "./donate-box";
 
 export default async function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -21,7 +21,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
     endDate?: string | null;
   } | null = null;
   try {
-    const r = await fetch(`${getApiBase()}/projects/public/${id}`, { next: { revalidate: 30 } });
+    const r = await fetch(`${getServerApiBase()}/projects/public/${id}`, { next: { revalidate: 30 } });
     if (r.ok) project = await r.json();
   } catch {
     project = null;
