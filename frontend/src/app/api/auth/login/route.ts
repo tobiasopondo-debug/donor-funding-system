@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { agentDebugAppend } from "../agent-debug-append";
 import { jsonWithRefreshCookie } from "../refresh-cookie";
 import { readUpstreamJson } from "../upstream";
 
@@ -25,19 +24,7 @@ export async function POST(req: NextRequest) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-    } catch (e) {
-      agentDebugAppend({
-        location: "login/route.ts:fetch",
-        message: "Upstream fetch threw",
-        detail: e instanceof Error ? e.message : String(e),
-        apiHost: (() => {
-          try {
-            return new URL(API).host;
-          } catch {
-            return "invalid-url";
-          }
-        })(),
-      });
+    } catch {
       return NextResponse.json(
         { message: "Could not reach API. Set INTERNAL_API_URL (e.g. http://api:4000 in Docker)." },
         { status: 502 },
@@ -49,12 +36,6 @@ export async function POST(req: NextRequest) {
     }
     const data = parsed.data;
     if (!r.ok) {
-      agentDebugAppend({
-        location: "login/route.ts:upstream-error",
-        message: "Upstream returned non-OK",
-        upstreamStatus: r.status,
-        keys: typeof data === "object" && data ? Object.keys(data as object) : [],
-      });
       return NextResponse.json(data, { status: r.status });
     }
     if (data.requiresOtp && data.challengeId) {
@@ -65,24 +46,12 @@ export async function POST(req: NextRequest) {
       });
     }
     if (!data.accessToken || !data.refreshToken) {
-      agentDebugAppend({
-        location: "login/route.ts:invalid-shape",
-        message: "Invalid auth response branch",
-        keys: typeof data === "object" && data ? Object.keys(data as object) : [],
-        requiresOtp: data.requiresOtp,
-        hasChallengeId: Boolean(data.challengeId),
-      });
       return NextResponse.json({ message: "Invalid auth response" }, { status: 500 });
     }
     const { refreshToken, accessToken, user } = data;
     return jsonWithRefreshCookie({ accessToken, user }, refreshToken, req);
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
-    agentDebugAppend({
-      location: "login/route.ts:POST:catch",
-      message: "Unhandled login BFF error",
-      detail,
-    });
     return NextResponse.json(
       {
         message: "Login failed",

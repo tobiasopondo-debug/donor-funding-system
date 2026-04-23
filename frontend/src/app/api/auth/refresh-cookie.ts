@@ -1,5 +1,4 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { agentDebugAppend } from "./agent-debug-append";
 
 const REFRESH_MAX_AGE = 60 * 60 * 24 * 7;
 
@@ -45,14 +44,6 @@ export function jsonWithRefreshCookie(
     setRefreshTokenCookie(res, refreshToken, req);
   } catch (e) {
     const detail = e instanceof Error ? e.message : String(e);
-    agentDebugAppend({
-      location: "refresh-cookie.ts:jsonWithRefreshCookie",
-      message: "cookies.set threw",
-      detail,
-      secure: cookieSecureFlag(req),
-      proto: req.nextUrl.protocol,
-      xf: req.headers.get("x-forwarded-proto") ?? null,
-    });
     return NextResponse.json(
       { message: "Could not set session cookie", detail },
       { status: 500 },
